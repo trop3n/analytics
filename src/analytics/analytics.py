@@ -108,3 +108,57 @@ def fetch_vimeo_livestream_data(access_token, client_id, client_secret):
                         })
             else:
                 print(f"   No viewer data found or unexpected format for Video ID {video_id}. Response: {analytics_data}")
+
+            livestreams_data.append({
+                "id": video_id,
+                "title": video_name,
+                "viewer_data": viewer_data_points
+            })
+
+    except requests.exceptions.HTTPError as http_err:
+        print(f"HTTP Error Occurred: {http_err} - Response: {http_err.response.text}")
+    except requests.exceptions.ConnectionError as conn_err:
+        print(f"Connection error occurred: {conn_err}")
+    except requests.exceptions.Timeout as timeout_err:
+        print(f"Timeout error occurred: {timeout_err}")
+    except requests.exceptions.RequestException as req_err:
+        print(f"An error occurred during API request: {req_err}")
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
+    return livestreams_data
+
+def get_peak_viewers(viewer_data):
+    """
+    Calculates the peak concurrent viewers from a list of viewer data points.
+
+    Args:
+        viewer_data (list): A list of dictionaries, where each dictionary
+                            has a "concurrent_viewers" key.
+
+    Returns:
+        int: The highest concurrent viewer count found. Returns 0 if no data.
+    """
+    if not viewer_data:
+        return 0
+    # Extract all concurrent viewer counts and find the maximum
+    peak_viewers = max([data["concurrent_viewers"] for data in viewer_data])
+    return peak_viewers
+
+def generate_vimeo_analytics_report(livestreams_data):
+    """
+    Generates a formatted report of Vimeo livestream analytics,
+    focusing on peak concurrent viewers.
+
+    Args:
+        livestreams_data (list): A list of dictionaries, each representing
+                                 a livestream with its associated data.
+
+    Returns:
+        str: A multi-line string containing the formatted report.
+    """
+    report_lines = ["Vimeo Livestream Peak Viewers Report\n"]
+    report_lines.append(f"Report Generated: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+    report_lines.append("-" * 50)
+
+    if not livestreams_data:
+        report_lines.append("No livestream data available to generate a report.")
