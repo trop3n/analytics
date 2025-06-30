@@ -37,4 +37,74 @@ def fetch_vimeo_livestream_data(access_token, client_id, client_secret):
         list: a list of dictionaries, where each dictionary represents a livestream
               with its ID, title, and viewer data. Returns an emptry list on error.
     """
-    
+    # Check if credentials are provided
+    if not access_token:
+        print("Error: VIMEO_ACCESS_TOKEN not found in env variables. Please set it in your .env file.")
+        return []
+
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+        "Content-Type": "application/json",
+        "Accept": "application/vnd.vimeo.*+json;version=3.4"
+    }
+
+    livestreams_data = []
+
+    try:
+        # Step 1: Fetch a list of livestreams/videos
+        print(f"Attempting to fetch livestreams from: {LIVESTREAMS_ENDPOINT}")
+        response = requests.get(LIVESTREAMS_ENDPOINT, headers=headers)
+        response.raise_for_status()
+        videos = response.json().get("data", [])
+        
+        print(f"Found {len(videos)} videos/livstreams. Fetching analytics...")
+
+        for video in videos:
+            video_id = video.get("uri", "").split("/")[-1] # Extract ID from URI
+            video_name = video.get("name", "Untitled Video")
+
+            if not video_id:
+                print(f"Skipping video with no ID: {video_name}")
+                continue
+
+            # Step 2: For each livestream, fetch it's analytics data (concurrent viewers)
+            # This part is highly dependent on the actual Vimeo API structure for analytics.
+            # You might need to adjust the endpoint and how you extract viewer data.
+            analytics_endpoint = ANALYTICS_ENDPOINT_TEMPLATE.format(video_id=video_id)
+
+            # For common parameters for analytics data (concurrent viewers)
+            # For simplicity, let's fetch data for the last 24 hours.
+            end_time = datetime.datetime.now()
+            start_time = end_time - datetime.timedelta(days=1)
+            params = {
+                "start_date": start_time.strftime('%Y-%m-%dT%H:%M:%SZ'),
+                "end_date": end_time.strftime('%Y-%m-%dT%H:%M:%SZ'),
+                "interval": "minute", # Or "hour", "day" depending on granularity needed
+                "metrics": "concurrent_viewers" # This parameter might be needed               
+            }
+
+            print(f"   Fetching analytics for '{video_name}' (ID: {video_id}) from: {analytics_endpoint}")
+            analytics_response = requests.get(analytics_endpoint, headers=headers, params=params)
+            analytics_response.raise_for_status()
+            analytics_data = analytics_response.json()
+
+            # --- PARSING ANALYTICS DATA (YOU WILL LIKELY NEED TO CUSTOMIZE THIS) ---
+            # This is a generic assumption based on common analytics API structures.
+            # You'll need to inspect the actual JSON response from Vimeo to parse it correctly.
+            viewer_data_points = []
+            if 'data' in analytics_data and isinstance(analytics_data['data'], list):
+                for point in analytics_data['data']:
+                    # Assuming API returns a 'time' and 'concurrent viewers' key
+                    if 'time' in point and 'concurrent_viewers' in point:
+                        viewer_data_points.append({
+                            "timestamp": point['time'],
+                            "concurrent_viewers": point['concurrent_viewers']
+                        })
+                    # If 'concurrent_viewers' is nested, e.g. in a 'metrics' object:
+                    elif 'time' in point and 'metrics' in point and 'concurrent_viewers' in point['metrics']:
+                        viewer_data_points.append({
+                            "timestamp": point['time'],
+                            "concurrent_viewers": point['metrics']['concurrent_viewers']
+                        })
+            else:
+                print(f"   No viewer data found or unexpected format for Video ID {video_id}. Response: {analytics_data}")
