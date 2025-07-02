@@ -162,3 +162,44 @@ def generate_vimeo_analytics_report(livestreams_data):
 
     if not livestreams_data:
         report_lines.append("No livestream data available to generate a report.")
+    else:
+        for livestream in livestreams_data:
+            livestream_id = livestream.get("id", "N/A")
+            livestream_title = livestream.get("title", "Untitled Livestream")
+            viewer_data = livestream.get("viewer_data", [])
+
+            peak_viewers = get_peak_viewers(viewer_data)
+
+            report_lines.append("f\nLivestream ID: {livestream_id}")
+            report_lines.append(f"Title: {livestream_title}")
+            report_lines.append(f"Peak Concurrent Viewers: {peak_viewers}")
+            report_lines.append("-" * 50) # Separator for each livestream
+
+    return "\n".join(report_lines)
+
+def main():
+    """
+    Main function to run the Vimeo analytics script.
+    """
+    print("Starting Vimeo analytics script...")
+
+    # Pass your actual credentials to the fetch function
+    # These are now loaded from environment variables
+    fetched_data = fetch_vimeo_livestream_data(VIMEO_ACCESS_TOKEN, VIMEO_CLIENT_ID, VIMEO_CLIENT_SECRET)
+
+    if fetched_data:
+        print(f"\nSuccessfully fetched data for {len(fetched_data)} livestream.")
+        print("Generating peak viewers report...")
+        report = generate_vimeo_analytics_report(fetched_data)
+        print("\n" + report)
+
+        # Optional: Save the report to a file
+        with open("vimeo_analytics_report.txt", 'w') as f:
+            f.write(report)
+        print(f"\nReport saved to vimeo_analytics_report.txt")
+    else:
+        print("\nCould not fetch any livestream data. Please check you API credentials, .env file, and network connection.")
+        print("A report could not be generated.")
+
+if __name__ == "__main__":
+    main()  
