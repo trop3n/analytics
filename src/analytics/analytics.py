@@ -76,3 +76,53 @@ params = {
     'metrics': ','.join(metrics),
     'per_page': 100, # Max per_page for Vimeo API
 }
+
+analytics_data = []
+page = 1
+total_pages = 1 #initialize the loop
+
+print(f"Fetching analytics for dates: {start_date_str} to {end_date_str}")
+
+if video_id:
+    print(f"   For video ID: {video_id}")
+    # This endpoint is for specific video analytics.
+    base_uri = f'.videos/{video_id}/analytics'
+else:
+    # This endpoint is for specific video analytics.
+    # Note: Access to this may vary based on your Vimeo Enterprise plan and API scopes.
+    print(f"  Fetching account-wide analytics...")
+    base_uri = '/me/analytics' # or '/users/{user_id}/analytics if targeting a user's analytics
+
+    while page <= total_pages:
+        params['page'] = page
+        uri_with_params = f"{base_uri}?{pd.io.common.urlencode(params)}"
+
+        try:
+            response = client.get(uri_with_params)
+            if response.status_code == 200:
+                data = response.json()
+                if 'data' in data and data['data']:
+                    analytics_data.extend(data['data'])
+                    if 'paging' in data and 'pages' in data['paging']:
+                        total_pages = data['paging']['pages']
+                    else:
+                        total_pages = page
+                    print(f"  Fetched page {page}/{total_pages}")
+                    page += 1
+                else:
+                    print(f"No data found for page {page} or end of data.")
+                    break
+            elif response.status_code == 403:
+                print(f"Access Denied (403): Check your API token scopes and Vimeo account type.")
+                print(f"Response: {response.text}")
+                break
+            else:
+                print(f"Error fetching analytics data (Status: {response.status_code}): {response.text}")
+                break
+        except Exception as e:
+            print(f"An unexpected error has occurred during API call: {e}")
+            break
+    return analytics_data
+
+# --- Main Script Execution ---
+
