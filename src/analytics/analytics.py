@@ -125,4 +125,21 @@ else:
     return analytics_data
 
 # --- Main Script Execution ---
+if __name__ == '__main__':
+    vimeo_client = initialize_vimeo_client(CLIENT_ID, CLIENT_SECRET, ACCESS_TOKEN)
 
+    if vimeo_client:
+        specific_video_id = 'YOUR_VIDEO_ID'
+
+        if specific_video_id == 'YOUR_VIDEO_ID' or specific_video_id is None:
+            print("\nNote: 'YOUR_VIDEO_ID' is a placeholder. If you want specific video analytics,")
+            print("      please replace it with an actual video ID from your Vimeo account.")
+            print("      Attempting to fetch account-wide analytics (if supported by your API access).")
+            analytics_data = get_video_analytics(
+                vimeo_client,
+                video_id=None,
+                start_date=START_DATE,
+                end_date=END_DATE,
+                dimensions=DIMENSIONS,
+                metrics=METRICS
+            )
