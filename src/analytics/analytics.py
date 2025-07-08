@@ -218,7 +218,7 @@ if __name__ == '__main__':
 
             df = pd.DataFrame(analytics_data)
             
-            for col in DIMENSIONS + METRICS: # use the updated METRICS list here
+            for col in DIMENSIONS + METRICS:
                 if col not in df.columns:
                     df[col] = None
 
@@ -226,19 +226,25 @@ if __name__ == '__main__':
                 df['date'] = pd.to_datetime(df['date'], errors='coerce')
 
             report_filename = f"vimeo_analytics_report_{END_DATE.strftime('%Y%m%d')}.xlsx"
-
+            os.makedirs(output_dir, exist_ok=True)
+            full_report_path = os.path.join(output_dir, report_filename)
             try:
                 output_dir = 'reports'
-                os.makedirs(output_dir, exist_ok=True)
-                full_report_path = os.path.join(output_dir, report_filename)
 
                 df.to_excel(full_path_report, index=False)
                 print(f"\nAnalytics report generated and saved to: {full_report_path}")
                 print("Report includes the following columns:")
                 for col in df.columns:
                     print(f"- {col}")
+                
+                # --- Send the email with the report ---
+                email_subject = f"Vimeo Analytics Report - {END_DATE.strftime('%Y-%m-%d')}"
+                email_body = f"Dear team, \n\nPlease find attached the Vimeo analytics report for the period from {START_DATE.strftime('%Y-%m-%d')} to {END_DATE.strftime('%Y-%m-%d')}.\n\nBest Regards,\nAnalytics Bot"
+
+                send_email(SENDER_EMAIL, SENDER_PASSWORD, RECEIVER_EMAILS, email_subject, email_body, full_report_path)
+                
             except Exception as e:
-                print("Error genearting Excel report: {e}")
+                print("Error genearting Excel report or sending email: {e}")
         else:
             print("\nNo analytics data collected. Please check your API credentials, video ID (if specified), date range, and Vimeo credentials.")
     else:
