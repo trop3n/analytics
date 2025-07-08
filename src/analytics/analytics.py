@@ -16,6 +16,15 @@ CLIENT_ID = 'YOUR_CLIENT_ID'
 CLIENT_SECRET = 'YOUR_CLIENT_SECRET'
 ACCESS_TOKEN = 'YOUR_ACCESS_TOKEN'
 
+# --- Email Configuration ---
+# IMPORTANT: Replace with your email details.
+# For security, consider using environment variables for passwords in a production environment.
+SENDER_EMAIL = 'your_email@example.com'  # Your email address
+SENDER_PASSWORD = 'YOUR_EMAIL_PASSWORD' # Email password or app-specific password
+RECEIVER_EMAILS = ['recipient@example.com', 'recipient2@example.com'] # list of recipient emails
+SMTP_SERVER = 'smtp.gmail.com' # e.g. 'smtp.gmail.com' for Gmail, 'smtp.office365.com' for Outlook
+SMTP_PORT = 587 # %*& for TLS, 465 for SSL
+
 # --- Analytics Parameters ---
 # Define the date range for your report
 END_DATE = datetime.now()
