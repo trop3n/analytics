@@ -143,3 +143,43 @@ if __name__ == '__main__':
                 dimensions=DIMENSIONS,
                 metrics=METRICS
             )
+        else:
+            analytics_data = get_video_analytics(
+                vimeo_client,
+                video_id=specific_video_id,
+                start_date=START_DATE,
+                end_date=END_DATE,
+                dimensions=DIMENSIONS,
+                metrics=METRICS
+            )
+
+        if analytics_data:
+            print(f"\nSuccessfully collected {len(analytics_data)} analytics records.")
+
+            df = pd.DataFrame(analytics_data)
+            
+            for col in DIMENSIONS + METRICS: # use the updated METRICS list here
+                if col not in df.columns:
+                    df[col] = None
+
+            if 'date' in df.columns:
+                df['date'] = pd.to_datetime(df['date'], errors='coerce')
+
+            report_filename = f"vimeo_analytics_report_{END_DATE.strftime('%Y%m%d')}.xlsx"
+
+            try:
+                output_dir = 'reports'
+                os.makedirs(output_dir, exist_ok=True)
+                full_report_path = os.path.join(output_dir, report_filename)
+
+                df.to_excel(full_path_report, index=False)
+                print(f"\nAnalytics report generated and saved to: {full_report_path}")
+                print("Report includes the following columns:")
+                for col in df.columns:
+                    print(f"- {col}")
+            except Exception as e:
+                print("Error genearting Excel report: {e}")
+        else:
+            print("\nNo analytics data collected. Please check your API credentials, video ID (if specified), date range, and Vimeo credentials.")
+    else:
+        print("\nVimeo client could not be initialized. Please check CLIENT_ID, CLIENT_SECRET, and ACCESS_TOKEN.")
