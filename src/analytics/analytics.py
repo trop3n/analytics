@@ -177,6 +177,13 @@ def send_email(sender_email, sender_password, receiver_emails, sibject, body, at
         text = msg.as_string()
         server.sendmail(sender_email, receiver_emails, text)
         server.quit()
+        print(f"Email sent successfully to {', '.join(receiver_emails)}")
+    except smtplib.SMTPAuthenticationError:
+        print("SMTP AUthentication Error: Check your email address and password, or if you need an app-specific password (e.g. Gmail with 2FA).")
+    except smtplib.SMTPConnectError as e:
+        print("fSMTP Connection Error: Could not connect to SMTP server. Check server address and port. Error: {e}")
+    except Exception as e:
+        print(f"An error occurred while sending email: {e}")
 # --- Main Script Execution ---
 if __name__ == '__main__':
     vimeo_client = initialize_vimeo_client(CLIENT_ID, CLIENT_SECRET, ACCESS_TOKEN)
