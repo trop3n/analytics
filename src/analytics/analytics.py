@@ -36,7 +36,7 @@ DIMENSIONS = ['date', 'video_id', 'country', 'device_type']
 
 # Metrics you want to pull (e.g. 'plays', 'finishes', 'total_atch_time', etc.)
 # Refer to Vimeo Analytics API docs for available metrics.
-METRICS = ['plays', 'finishes', 'total_watch_time', 'impressions']
+METRICS = ['plays', 'finishes', 'total_watch_time', 'impressions', 'unique_viewers']
 
 # --- Initialize Vimeo Client ---
 def initialize_vimeo_client(client_id, client_secret, access_token):
@@ -99,13 +99,10 @@ print(f"Fetching analytics for dates: {start_date_str} to {end_date_str}")
 
 if video_id:
     print(f"   For video ID: {video_id}")
-    # This endpoint is for specific video analytics.
     base_uri = f'.videos/{video_id}/analytics'
 else:
-    # This endpoint is for specific video analytics.
-    # Note: Access to this may vary based on your Vimeo Enterprise plan and API scopes.
     print(f"  Fetching account-wide analytics...")
-    base_uri = '/me/analytics' # or '/users/{user_id}/analytics if targeting a user's analytics
+    base_uri = '/me/analytics'
 
     while page <= total_pages:
         params['page'] = page
@@ -138,6 +135,48 @@ else:
             break
     return analytics_data
 
+def send_email(sender_email, sender_password, receiver_emails, sibject, body, attachment_path=None):
+    """
+    Sends an email with an optional attachment.
+
+    Args:
+        sender_email (str): The sender's email address.
+        sender_password (str): The sender's email password
+        receiver_emails (list): A list of recipient email addresses.
+        subject (str): the subject of the email.
+        body (str): The plain text body of the email.
+        attachment_path (str, optional): The path to the file to attach. Default to None.
+    """
+    msg = MIMEMultipart()
+    msg['From'] = sender_email
+    msg['To'] = ", ".join(receiver_emails)
+    msg['Subject'] = subject
+
+    msg.attach(MIMEText(body, 'plain'))
+
+    if attachment_path:
+        try:
+            with open(attachment_path, "rb") as attachment:
+                part = MIMEBase("application", "octet-stream")
+                part.set_payload(attachment.read())
+            encoders.encode_base64(part)
+            part.add_header(
+                "Content-Disposition",
+                f"attachment; filename= {os.path.basename(attachment_path)}",
+            )
+            msg.attach(part)
+            print(f"Attached file: {os.path.basename(attachment_path)}")
+        except FileNotFoundError:
+            print(f"Attachment file not found: {attachment_path}")
+        except Exception as e:
+            print(f"Error attaching file {attachment_path}: {e}")
+    try:
+        server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
+        server.starttls() # Secure the connection
+        server.login(sender_email, sender_password)
+        text = msg.as_string()
+        server.sendmail(sender_email, receiver_emails, text)
+        server.quit()
 # --- Main Script Execution ---
 if __name__ == '__main__':
     vimeo_client = initialize_vimeo_client(CLIENT_ID, CLIENT_SECRET, ACCESS_TOKEN)
