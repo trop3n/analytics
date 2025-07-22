@@ -12,16 +12,16 @@ from email import encoders
 # IMPORTANT: Replace these with your actual Vimeo API credentials.
 # You need a Vimeo Enterprise account and an API application created on the Vimeo Developer Site.
 # Ensure your Personal Access Token has the necessary scopes (e.g., public, private, video_files, analytics).
-CLIENT_ID = 'YOUR_CLIENT_ID'
-CLIENT_SECRET = 'YOUR_CLIENT_SECRET'
-ACCESS_TOKEN = 'YOUR_ACCESS_TOKEN'
+CLIENT_ID = os.environ.get('VIMEO_CLIENT_ID')
+CLIENT_SECRET = os.environ.get('VIMEO_CLIENT_SECRET')
+ACCESS_TOKEN = os.environ.get('VIMEO_ACCESS_TOKEN')
 
 # --- Email Configuration ---
 # IMPORTANT: Replace with your email details.
 # For security, consider using environment variables for passwords in a production environment.
-SENDER_EMAIL = 'your_email@example.com'  # Your email address
-SENDER_PASSWORD = 'YOUR_EMAIL_PASSWORD' # Email password or app-specific password
-RECEIVER_EMAILS = ['recipient@example.com', 'recipient2@example.com'] # list of recipient emails
+SENDER_EMAIL = os.environ.get("OUTLOOK_ACCOUNT")
+SENDER_PASSWORD = os.environ.get("OUTLOOK_PASS") # Email password or app-specific password
+RECEIVER_EMAILS = ['jkimm@standrewmethodist.org'] # list of recipient emails
 SMTP_SERVER = 'smtp.office365.com' # e.g. 'smtp.gmail.com' for Gmail, 'smtp.office365.com' for Outlook
 SMTP_PORT = 587 # %*& for TLS, 465 for SSL
 
@@ -79,30 +79,30 @@ def get_video_analytics(client, video_id=None, start_date=None, end_date=None, d
         print("Error: start_date, end_date, dimensions, and metrics are required.")
         return []
         
-# Format dates for API request
-start_date_str = start_date.strftime('%Y-%m-%d')
-end_date_str = end_date.strftime('%Y-%m-%d')
+    # Format dates for API request
+    start_date_str = start_date.strftime('%Y-%m-%d')
+    end_date_str = end_date.strftime('%Y-%m-%d')
 
-params = {
+    params = {
     'start_date': start_date_str,
     'end_date': end_date_str,
     'dimensions': ','.join(dimensions),
     'metrics': ','.join(metrics),
     'per_page': 100, # Max per_page for Vimeo API
-}
+    }
 
-analytics_data = []
-page = 1
-total_pages = 1 #initialize the loop
+    analytics_data = []
+    page = 1
+    total_pages = 1 #initialize the loop
 
-print(f"Fetching analytics for dates: {start_date_str} to {end_date_str}")
+    print(f"Fetching analytics for dates: {start_date_str} to {end_date_str}")
 
-if video_id:
-    print(f"   For video ID: {video_id}")
-    base_uri = f'.videos/{video_id}/analytics'
-else:
-    print(f"  Fetching account-wide analytics...")
-    base_uri = '/me/analytics'
+    if video_id:
+        print(f"   For video ID: {video_id}")
+        base_uri = f'.videos/{video_id}/analytics'
+    else:
+        print(f"  Fetching account-wide analytics...")
+        base_uri = '/me/analytics'
 
     while page <= total_pages:
         params['page'] = page
