@@ -1,6 +1,6 @@
 import vimeo
 import pandas as pd
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import os
 import smtplib
 from email.mime.multipart import MIMEMultipart
@@ -50,7 +50,7 @@ def initialize_vimeo_client(client_id, client_secret, access_token):
         return None
 
 def get_videos_from_folder(client, folder_id):
-    """Fetches all videos from a specific Vimeo folder (project)."""
+    """Fetches all videos from a specific Vimeo folder optimized to stop when videos are older than the cutoff_date."""
     if not client:
         print("Vimeo client is not initialized.")
         return []
@@ -61,15 +61,30 @@ def get_videos_from_folder(client, folder_id):
 
     while True: 
         try:
-            # The endpoint for getting videos from a folder (project)
+            # The endpoint for getting videos from a folder (project), sorted by date descending
             uri = f'/me/projects/{folder_id}/videos'
             response = client.get(uri, params={'per_page': per_page, 'page': page, 'sort': 'date', 'direction': 'desc'})
 
             if response.status_code == 200:
                 data = response.json()
-                videos.extend(data.get('data', []))
 
-                # check for the next page to ensure all videos are fetched
+                page_videos = data.get('data', [])
+
+                if not page_videos:
+                    # no more videos found on this page, so we're done.
+                    break
+
+                videos.extend(page_videos)
+
+                # --- OPTIMIZATION --- 
+                # Check the date of the LAST video on the current page.
+                # If it's older than our cutoff, we don't need to fetch any more pages.
+                last_video_date = datetime.fromisoformat(page_videos[-1]['created_time'].replace('Z', '+00:00'))
+                if last_video_date < cutoff_date:
+                    print("  Found videos older than the cutoff date. Stopping pagination to improve performance.")
+                    break # Exit the loop, no need to fetch older videos.
+
+                # Check for the next page to continue fetching if needed.
                 if data.get('paging', {}).get('next'):
                     page += 1
                 else:
@@ -84,7 +99,7 @@ def get_videos_from_folder(client, folder_id):
 
 def get_video_analytics(client, video_id, start_date, end_date, dimensions, metrics):
     """Fetches analytics data from Vimeo for a single, specific video."""
-    if not client;
+    if not client:
         print("Vimeo client not initialized. Cannot fetch data.")
         return []
 
@@ -113,7 +128,7 @@ def get_video_analytics(client, video_id, start_date, end_date, dimensions, metr
             response.client.get(base_uri, params=params)
             if response.status_code == 200:
                 data = response.json()
-                if data.get('data')
+                if data.get('data'):
                     analytics_data.extend(data['data'])
                     # update total_pages from the first successful response
                     if 'paging' in data and data['paging'].get('pages') is not None:
@@ -166,27 +181,27 @@ if __name__ == '__main__':
 
     if vimeo_client:
         all_analytics_data = []
-
+        
+        # Define the cutoff date: videos created after this date will be processed.
+        one_week_ago = datetime.now(timezone.utc) - timedelta(days=7)
+        
         print(f"Fetching videos from 'Worship Services' folder (ID: {WORSHIP_SERVICES_FOLDER_ID})...")
-        videos_in_folder = get_videos_from_folder(vimeo_client, WORSHIP_SERVICES_FOLDER_ID)
-
-        if videos_in_folder:
-            # Define the cutoff data: videos created after this date will be processed
-            # Running on Monday morning, this will catch videos from the previous Sunday
-            one_week_ago = datetime.now() - timedelta(days=7)
-
-            recent_videos = [
-                v for v in videos_in_folder
-                if datetime.fromisoformat(v['created_time'].replace('Z', '+00:00')) > one_week_ago
-            ]
-
-            print(f"Found {len(recent_videos)} video(s) uploaded in the last week.")
+        # Pass the cutoff date to the function for optimization
+        videos_in_folder = get_videos_from_folder(vimeo_client, WORSHIP_SERVICES_FOLDER_ID, one_week_ago)
+        
+        # Now that we have a smaller list, filter it to get only the recent videos
+        recent_videos = [
+            v for v in videos_in_folder 
+            if datetime.fromisoformat(v['created_time'].replace('Z', '+00:00')) > one_week_ago
+        ]
+        
+        if recent_videos:
+            print(f"Found {len(recent_videos)} video(s) uploaded in the last week to process.")
 
             for video in recent_videos:
-                # Extract the numeric video ID from the URI (e.g. '/videos/12345')
                 video_id = video['uri'].split('/')[-1]
                 print(f"\nFetching analytics for video ID: {video_id} ('{video['name']}')")
-
+                
                 analytics_data = get_video_analytics(
                     vimeo_client,
                     video_id=video_id,
@@ -199,27 +214,24 @@ if __name__ == '__main__':
 
         if all_analytics_data:
             print(f"\nSuccessfully collected {len(all_analytics_data)} total analytics records.")
-
+            
             df = pd.DataFrame(all_analytics_data)
-
-            # create a directory for reports if it doesn't exist
+            
             output_dir = 'reports'
             os.makedirs(output_dir, exist_ok=True)
             report_filename = f"vimeo_analytics_report_{END_DATE.strftime('%Y%m%d')}.xlsx"
-            full_report_path - os.path.join(output_dir, report_filename)
+            full_report_path = os.path.join(output_dir, report_filename)
 
             try:
-                # Save the DataFrame to an Excel file
                 df.to_excel(full_report_path, index=False)
                 print(f"\nAnalytics report generated and saved to: {full_report_path}")
 
-                # Send the report via email
                 email_subject = f"Vimeo Analytics Report - {END_DATE.strftime('%Y-%m-%d')}"
-                email_body = f"Dear team,\n\nPlease find attached the Vimeo analytics report for the period from {START_DATE.strftime('Y%-%m-%d')} to {END_DATE.strftime('%Y-%m-%d')}.\n\nThis report includes data for videos uploaded to the 'Worship Services' folder in the last week.\n\nBest Regards,\nAnalytics Bot"
+                email_body = f"Dear team,\n\nPlease find attached the Vimeo analytics report for the period from {START_DATE.strftime('%Y-%m-%d')} to {END_DATE.strftime('%Y-%m-%d')}.\n\nThis report includes data for videos uploaded to the 'Worship Services' folder in the last week.\n\nBest Regards,\nAnalytics Bot"
                 send_email(SENDER_EMAIL, SENDER_PASSWORD, RECEIVER_EMAILS, email_subject, email_body, full_report_path)
             except Exception as e:
                 print(f"Error generating Excel report or sending email: {e}")
         else:
-            print("\nNo recent analytics data collected. This could be because no now videos were found in the folder for the specified date range.")
+            print("\nNo recent analytics data collected. This could be because no new videos were found in the folder for the specified date range.")
     else:
         print("\nVimeo client could not be initialized. Please check your API credentials in your .env file.")
