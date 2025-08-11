@@ -24,7 +24,7 @@ ACCESS_TOKEN = os.environ.get('VIMEO_ACCESS_TOKEN')
 # For security, consider using environment variables for passwords in a production environment.
 SENDER_EMAIL = os.environ.get("OUTLOOK_ACCOUNT")
 SENDER_PASSWORD = os.environ.get("OUTLOOK_PASS") # Email password or app-specific password
-RECEIVER_EMAILS = ['jkimm@standrewmethodist.org'] # list of recipient emails
+RECEIVER_EMAILS = os.environ.get("RECEIVER_EMAILS", "").split(',')
 SMTP_SERVER = 'smtp.office365.com' # e.g. 'smtp.gmail.com' for Gmail, 'smtp.office365.com' for Outlook
 SMTP_PORT = 587 # %*& for TLS, 465 for SSL
 
