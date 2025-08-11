@@ -32,6 +32,112 @@ SMTP_PORT = 587 # %*& for TLS, 465 for SSL
 # Define the date range for your report
 END_DATE = datetime.now()
 START_DATE = END_DATE - timedelta(days=7) # Example: Last 30 days
+DIMENSIONS = ['date', 'video_id', 'country', 'device_type']
+METRICS = ['plays', 'finishes', 'total_watch_time', 'impressions', 'unique_viewers']
+WORSHIP_SERVICES_FOLDER_ID = '15749517' # The ID for of "Worship Services"
+
+def initialize_vimeo_client(client_id, client_secret, access_token):
+    """Initializes and returns a Vimeo API client."""
+    if not all([client_id, client_secret, access_token]):
+        print("Error: Make sure VIMEO_CLIENT_ID, VIMEO_CLIENT_SECRET, and VIMEO_ACCESS_TOKEN are set.")
+        return None
+    try:
+        client = vimeo.VimeoClient(token=access_token, key=client_id, secret=client_secret)
+        print("Vimeo API client initialized successfully.")
+        return client
+    except Exception as e:
+        print(f"Error initializing Vimeo API client: {e}")
+        return None
+
+def get_videos_from_folder(client, folder_id):
+    """Fetches all videos from a specific Vimeo folder (project)."""
+    if not client:
+        print("Vimeo client is not initialized.")
+        return []
+
+    videos = []
+    page = 1
+    per_page = 100 # max allowed
+
+    while True: 
+        try:
+            # The endpoint for getting videos from a folder (project)
+            uri = f'/me/projects/{folder_id}/videos'
+            response = client.get(uri, params={'per_page': per_page, 'page': page, 'sort': 'date', 'direction': 'desc'})
+
+            if response.status_code == 200:
+                data = response.json()
+                videos.extend(data.get('data', []))
+
+                # check for the next page to ensure all videos are fetched
+                if data.get('paging', {}).get('next'):
+                    page += 1
+                else:
+                    break # no more pages
+            else:
+                print(f"Error fetching videos from folder {folder_id}. Status: {response.status_code} - {response.text}")
+                break
+        except Exception as e:
+            print(f"An unexpected error occurred while fetching videos: {e}")
+            break
+    return videos
+
+def get_video_analytics(client, video_id, start_date, end_date, dimensions, metrics):
+    """Fetches analytics data from Vimeo for a single, specific video."""
+    if not client;
+        print("Vimeo client not initialized. Cannot fetch data.")
+        return []
+
+    start_date_str = start_date.strftime('%Y-%m-%d')
+    end_date_str = end_date.strftime('%Y-%m-%d')
+
+    params = {
+        'start_date': start_date_str,
+        'end_date': end_date_str,
+        'dimensions': ','.join(dimensions),
+        'metrics': ','.join(metrics),
+        'per_page': 100,
+    } 
+
+    analytics_data = []
+    page = 1
+    # Initialize total_pages to 1 to start the loop
+    total_pages = 1
+
+    base_uri = f'/videos/{video_id}/analytics'
+
+    while page <= total_pages:
+        params['page'] = page
+
+        try:
+            response.client.get(base_uri, params=params)
+            if response.status_code == 200:
+                data = response.json()
+                if data.get('data')
+                    analytics_data.extend(data['data'])
+                    # update total_pages from the first successful response
+                    if 'paging' in data and data['paging'].get('pages') is not None:
+                        total_pages = data['paging']['pages']
+                    print(f"  Fetched page {page}/{total_pages} for video {video_id}")
+                    page += 1
+                else:
+                    # No data found, exit loop
+                    break
+            else:
+                print(f"Error fetching analytics for video {video_id} (Status: {response.status_code}): {response.text}")
+                break
+        except Exception as e:
+            print(f"An unexpected error occurred during API call for video {video_id}: {e}")
+            break
+    return analytics_data
+
+def send_email(sender_email, sender_password, receiver_emails, subject, body, attachment_path=None):
+    """Sends an email with an optional attachment using Outlook SMTP."""
+    msg = MIMEMultipart()
+    msg['From'] = sender_email
+    msg['To'] = ", ".join(receiver_emails)
+    msg['Subject'] = subject
+    msg.attach(MIMEText(body, 'plain'))
 
 # Dimensions you want to pull (e.g., 'date', 'country', 'device_types', 'embed_domains')
 # Refer to Vimeo Analytics API documentation for available dimensions.
