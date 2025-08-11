@@ -7,6 +7,9 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.base import MIMEBase
 from email.mime.text import MIMEText
 from email import encoders
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # --- Configuration ---
 # IMPORTANT: Replace these with your actual Vimeo API credentials.
