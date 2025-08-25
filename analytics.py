@@ -49,7 +49,7 @@ def initialize_vimeo_client(client_id, client_secret, access_token):
         print(f"Error initializing Vimeo API client: {e}")
         return None
 
-def get_videos_from_folder(client, folder_id):
+def get_videos_from_folder(client, folder_id, cutoff_date):
     """Fetches all videos from a specific Vimeo folder optimized to stop when videos are older than the cutoff_date."""
     if not client:
         print("Vimeo client is not initialized.")
@@ -125,7 +125,7 @@ def get_video_analytics(client, video_id, start_date, end_date, dimensions, metr
         params['page'] = page
 
         try:
-            response.client.get(base_uri, params=params)
+            response = client.get(base_uri, params=params)
             if response.status_code == 200:
                 data = response.json()
                 if data.get('data'):
