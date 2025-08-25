@@ -26,12 +26,12 @@ SENDER_EMAIL = os.environ.get("OUTLOOK_ACCOUNT")
 SENDER_PASSWORD = os.environ.get("OUTLOOK_PASS") # Email password or app-specific password
 RECEIVER_EMAILS = os.environ.get("RECEIVER_EMAILS", "").split(',')
 SMTP_SERVER = 'smtp.office365.com' # e.g. 'smtp.gmail.com' for Gmail, 'smtp.office365.com' for Outlook
-SMTP_PORT = 587 # %*& for TLS, 465 for SSL
+SMTP_PORT = 587 # 587 for TLS, 465 for SSL
 
 # --- Analytics Parameters ---
 # Define the date range for your report
 END_DATE = datetime.now()
-START_DATE = END_DATE - timedelta(days=7) # Example: Last 30 days
+START_DATE = END_DATE - timedelta(days=7) # Example: Last 7 days
 DIMENSIONS = ['date', 'video_id', 'country', 'device_type']
 METRICS = ['plays', 'finishes', 'total_watch_time', 'impressions', 'unique_viewers']
 WORSHIP_SERVICES_FOLDER_ID = '15749517' # The ID for of "Worship Services"
@@ -59,7 +59,7 @@ def get_videos_from_folder(client, folder_id, cutoff_date):
     page = 1
     per_page = 100 # max allowed
 
-    while True: 
+    while True:
         try:
             # The endpoint for getting videos from a folder (project), sorted by date descending
             uri = f'/me/projects/{folder_id}/videos'
@@ -67,28 +67,21 @@ def get_videos_from_folder(client, folder_id, cutoff_date):
 
             if response.status_code == 200:
                 data = response.json()
-
                 page_videos = data.get('data', [])
-
                 if not page_videos:
-                    # no more videos found on this page, so we're done.
                     break
-
                 videos.extend(page_videos)
 
-                # --- OPTIMIZATION --- 
-                # Check the date of the LAST video on the current page.
-                # If it's older than our cutoff, we don't need to fetch any more pages.
+                # --- OPTIMIZATION ---
                 last_video_date = datetime.fromisoformat(page_videos[-1]['created_time'].replace('Z', '+00:00'))
                 if last_video_date < cutoff_date:
                     print("  Found videos older than the cutoff date. Stopping pagination to improve performance.")
-                    break # Exit the loop, no need to fetch older videos.
+                    break
 
-                # Check for the next page to continue fetching if needed.
                 if data.get('paging', {}).get('next'):
                     page += 1
                 else:
-                    break # no more pages
+                    break
             else:
                 print(f"Error fetching videos from folder {folder_id}. Status: {response.status_code} - {response.text}")
                 break
@@ -112,32 +105,34 @@ def get_video_analytics(client, video_id, start_date, end_date, dimensions, metr
         'dimensions': ','.join(dimensions),
         'metrics': ','.join(metrics),
         'per_page': 100,
-    } 
+    }
 
     analytics_data = []
     page = 1
-    # Initialize total_pages to 1 to start the loop
     total_pages = 1
-
     base_uri = f'/videos/{video_id}/analytics'
 
     while page <= total_pages:
         params['page'] = page
-
         try:
             response = client.get(base_uri, params=params)
+            
             if response.status_code == 200:
                 data = response.json()
                 if data.get('data'):
                     analytics_data.extend(data['data'])
-                    # update total_pages from the first successful response
                     if 'paging' in data and data['paging'].get('pages') is not None:
                         total_pages = data['paging']['pages']
                     print(f"  Fetched page {page}/{total_pages} for video {video_id}")
                     page += 1
                 else:
-                    # No data found, exit loop
                     break
+            # --- MODIFIED SECTION ---
+            # Gracefully handle 404 errors, which are common for new videos
+            # where analytics data is not yet available.
+            elif response.status_code == 404:
+                print(f"  -> Warning: Analytics data not yet available for video {video_id} (404 Not Found). This is common for new videos. Skipping.")
+                break # Stop trying for this video
             else:
                 print(f"Error fetching analytics for video {video_id} (Status: {response.status_code}): {response.text}")
                 break
@@ -160,41 +155,38 @@ def send_email(sender_email, sender_password, receiver_emails, subject, body, at
                 part = MIMEBase("application", "octet-stream")
                 part.set_payload(attachment.read())
             encoders.encode_base64(part)
-            part.add_header("Content-Disposition", f"attachment: filename = {os.path.basename(attachment_path)}")
+            part.add_header("Content-Disposition", f"attachment; filename={os.path.basename(attachment_path)}")
             msg.attach(part)
             print(f"Attached file: {os.path.basename(attachment_path)}")
         except Exception as e:
             print(f"Error attaching file {attachment_path}: {e}")
-    
+
     try:
         server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
         server.starttls()
         server.login(sender_email, sender_password)
-        server.sendmai(sender_email, receiver_emails, msg.as_string())
+        server.sendmail(sender_email, receiver_emails, msg.as_string())
         server.quit()
         print(f"Email sent successfully to {', '.join(receiver_emails)}")
     except Exception as e:
-        print(f"An error occurred while sneding email: {e}")
+        print(f"An error occurred while sending email: {e}")
 
 if __name__ == '__main__':
     vimeo_client = initialize_vimeo_client(CLIENT_ID, CLIENT_SECRET, ACCESS_TOKEN)
 
     if vimeo_client:
         all_analytics_data = []
-        
-        # Define the cutoff date: videos created after this date will be processed.
+
         one_week_ago = datetime.now(timezone.utc) - timedelta(days=7)
-        
+
         print(f"Fetching videos from 'Worship Services' folder (ID: {WORSHIP_SERVICES_FOLDER_ID})...")
-        # Pass the cutoff date to the function for optimization
         videos_in_folder = get_videos_from_folder(vimeo_client, WORSHIP_SERVICES_FOLDER_ID, one_week_ago)
-        
-        # Now that we have a smaller list, filter it to get only the recent videos
+
         recent_videos = [
-            v for v in videos_in_folder 
+            v for v in videos_in_folder
             if datetime.fromisoformat(v['created_time'].replace('Z', '+00:00')) > one_week_ago
         ]
-        
+
         if recent_videos:
             print(f"Found {len(recent_videos)} video(s) uploaded in the last week to process.")
 
@@ -214,9 +206,9 @@ if __name__ == '__main__':
 
         if all_analytics_data:
             print(f"\nSuccessfully collected {len(all_analytics_data)} total analytics records.")
-            
+
             df = pd.DataFrame(all_analytics_data)
-            
+
             output_dir = 'reports'
             os.makedirs(output_dir, exist_ok=True)
             report_filename = f"vimeo_analytics_report_{END_DATE.strftime('%Y%m%d')}.xlsx"
@@ -232,6 +224,6 @@ if __name__ == '__main__':
             except Exception as e:
                 print(f"Error generating Excel report or sending email: {e}")
         else:
-            print("\nNo recent analytics data collected. This could be because no new videos were found in the folder for the specified date range.")
+            print("\nNo recent analytics data was collected. This could be because no new videos were found, or their analytics data was not yet available.")
     else:
         print("\nVimeo client could not be initialized. Please check your API credentials in your .env file.")
